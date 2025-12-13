@@ -8,6 +8,7 @@ export interface User {
   dateOfBirth: string
   phone: string
   role: string
+  twoFactorEnabled?: boolean
   birthdate?: string // Keep for backward compatibility
 }
 

@@ -20,8 +20,19 @@ function convertPropertyType(backendType: PropertyTypeBackend): PropertyType {
 }
 
 function CardProperty({ property }: { readonly property: Property }) {
-  // Use the first image or a fallback
-  const imageUrl = property.images?.[0] || '/placeholder-property.jpg'
+  // 1. Get the raw image string
+  let imageUrl = property.images?.[0] || '/placeholder-property.jpg'
+
+  // 🛠️ FIX: Clean the URL if it contains commas (dirty data fix)
+  if (imageUrl && imageUrl.includes(',')) {
+    imageUrl = imageUrl.split(',')[0].trim()
+  }
+
+  // Double check it starts with http (fallback if invalid)
+  if (!imageUrl.startsWith('http') && !imageUrl.startsWith('/')) {
+    imageUrl = '/placeholder-property.jpg'
+  }
+
   const propertyType = convertPropertyType(property.type)
   
   return (
@@ -53,7 +64,7 @@ function CardProperty({ property }: { readonly property: Property }) {
           <span className="text-xs sm:text-sm text-slate-500 font-medium">{property.city}, {property.state}</span>
 
           {/* Title */}
-          <h3 className="text-base sm:text-lg font-semibold text-slate-900 mt-1 mb-3 group-hover:text-teal-600 transition-colors">
+          <h3 className="text-base sm:text-lg font-semibold text-slate-900 mt-1 mb-3 group-hover:text-teal-600 transition-colors line-clamp-1">
             {property.title}
           </h3>
 

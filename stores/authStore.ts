@@ -4,11 +4,9 @@ import { AuthApiClient } from '@/utils/authApiClient'
 import { setCookie, deleteCookie } from '@/utils/cookies'
 
 interface AuthActions {
-  // Login functionality
   setPassword: (password: string) => void
-  submitLogIn: () => Promise<void>
-
-  // Signup functionality
+  submitLogIn: () => Promise<{ success: boolean; requireMFA?: boolean; message?: string }>
+  submitOtp: (otp: string) => Promise<{ success: boolean; message?: string }>
   setFirstName: (firstName: string) => void
   setLastName: (lastName: string) => void
   setBirthdate: (birthdate: string) => void
@@ -16,23 +14,18 @@ interface AuthActions {
   setPhone: (phone: string) => void
   setSignUpPassword: (password: string) => void
   submitSignUp: () => Promise<void>
-
-  // Email check functionality
   validateEmail: (email: string) => boolean
   submitEmailCheck: () => Promise<{ exists: boolean; isActive: boolean; role: string | null } | null>
-
-  // General auth actions
   setLoading: (loading: boolean) => void
   setError: (error: string | null) => void
   logout: () => void
   resetForm: () => void
   isLoginFormValid: () => boolean
   isSignUpFormValid: () => boolean
-  
-  // Auth persistence
   initializeAuth: () => void
   validateToken: () => Promise<boolean>
   refreshUserData: () => Promise<boolean>
+  checkAuthStatusOnLoad: () => Promise<void>
 }
 
 interface AuthFormState {
@@ -45,16 +38,19 @@ interface AuthFormState {
   signUpPassword: string
 }
 
-type AuthStore = AuthState & AuthFormState & AuthActions
+// ✅ FIX: Added 'token' to the type definition
+type AuthStore = AuthState & AuthFormState & AuthActions & { 
+  tempToken: string | null;
+  isAuthLoading: boolean;
+  token: string | null; 
+}
 
 const useAuthStore = create<AuthStore>((set, get) => ({
-  // Auth state
   user: null,
   isLoggedIn: false,
   isLoading: false,
+  isAuthLoading: true,
   error: null,
-
-  // Form state
   password: '',
   firstName: '',
   lastName: '',
@@ -62,8 +58,9 @@ const useAuthStore = create<AuthStore>((set, get) => ({
   email: '',
   phone: '',
   signUpPassword: '',
+  tempToken: null,
+  token: null, // ✅ FIX: Initialized token
 
-  // Actions
   setPassword: (password: string) => set({ password }),
   setFirstName: (firstName: string) => set({ firstName }),
   setLastName: (lastName: string) => set({ lastName }),
@@ -99,15 +96,15 @@ const useAuthStore = create<AuthStore>((set, get) => ({
 
   submitLogIn: async () => {
     const { email, password, setLoading, setError } = get()
-
+    
     if (!get().isLoginFormValid()) {
       setError('Please enter a valid password')
-      return
+      return { success: false, message: 'Invalid password' }
     }
 
     if (!email) {
       setError('Email is required')
-      return
+      return { success: false, message: 'Email required' }
     }
 
     setLoading(true)
@@ -116,25 +113,20 @@ const useAuthStore = create<AuthStore>((set, get) => ({
     try {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       })
-
+      
       const result = await response.json()
 
+      if (result.requireMFA) {
+        set({ tempToken: result.tempToken })
+        setLoading(false)
+        return { success: false, requireMFA: true, message: 'Please enter 2FA code' }
+      }
+
       if (response.ok && result.success) {
-        // Store user data and token
         const backendUser = result.data.user
-        
-        // Debug logging for development
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[AUTH] Backend user data:', backendUser)
-          console.log('[AUTH] First name:', backendUser.firstName)
-          console.log('[AUTH] Last name:', backendUser.lastName)
-          console.log('[AUTH] Name field:', backendUser.name)
-        }
         
         const user: User = {
           id: backendUser.id,
@@ -145,40 +137,107 @@ const useAuthStore = create<AuthStore>((set, get) => ({
           dateOfBirth: backendUser.dateOfBirth || '',
           phone: backendUser.phone || '',
           role: backendUser.role || 'user',
+          twoFactorEnabled: backendUser.isTwoFactorEnabled ?? backendUser.twoFactorEnabled ?? false,
           birthdate: backendUser.dateOfBirth || undefined,
         }
-        
-        // Debug logging for final user object
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[AUTH] Final user object:', user)
-          console.log('[AUTH] Constructed name:', user.name)
-        }
 
+        // ✅ FIX: Store token in state
         set({
           user,
           isLoggedIn: true,
+          token: result.data.token, 
           password: '',
-          email: '', // Clear email from form
+          email: '',
           error: null,
         })
 
-        // Store token and user data in localStorage for future API calls
         if (typeof window !== 'undefined') {
           localStorage.setItem('authToken', result.data.token)
           localStorage.setItem('authUser', JSON.stringify(user))
-          // Also set cookie for server-side middleware access
-          setCookie('authToken', result.data.token, 7) // 7 days expiry
+          setCookie('authToken', result.data.token, 7)
         }
 
-        // Navigate to home page instead of forcing to property page
         window.location.href = '/'
+        return { success: true }
       } else {
-        // Handle 400/401 errors
-        setError(result.message || 'Login failed. Please check your credentials.')
+        const msg = result.message || 'Login failed. Please check your credentials.'
+        setError(msg)
+        return { success: false, message: msg }
       }
     } catch (error) {
       console.error('Login error:', error)
-      setError('Login failed. Please try again.')
+      const msg = 'Login failed. Please try again.'
+      setError(msg)
+      return { success: false, message: msg }
+    } finally {
+      setLoading(false)
+    }
+  },
+
+  submitOtp: async (otp: string) => {
+    const { tempToken, setLoading, setError } = get()
+
+    if (!tempToken) {
+      setError('No temporary token found')
+      return { success: false, message: 'No temporary token found' }
+    }
+
+    setLoading(true)
+    setError(null)
+
+    try {
+      const response = await fetch('/api/auth/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tempToken, otp }),
+      })
+
+      const result = await response.json()
+
+      if (response.ok && result.success) {
+        const backendUser = result.data.user
+        const user: User = {
+          id: backendUser.id,
+          email: backendUser.email,
+          firstName: backendUser.firstName || '',
+          lastName: backendUser.lastName || '',
+          name: backendUser.name || `${backendUser.firstName || ''} ${backendUser.lastName || ''}`.trim(),
+          dateOfBirth: backendUser.dateOfBirth || '',
+          phone: backendUser.phone || '',
+          role: backendUser.role || 'user',
+          twoFactorEnabled: backendUser.isTwoFactorEnabled ?? backendUser.twoFactorEnabled ?? false,
+          birthdate: backendUser.dateOfBirth || undefined,
+        }
+
+        // ✅ FIX: Store token in state
+        set({
+          user,
+          isLoggedIn: true,
+          token: result.data.token,
+          password: '',
+          email: '',
+          error: null,
+          tempToken: null,
+        })
+
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('authToken', result.data.token)
+          localStorage.setItem('authUser', JSON.stringify(user))
+          setCookie('authToken', result.data.token, 7)
+        }
+
+        window.location.href = '/'
+        return { success: true }
+      } else {
+        const msg = result.message || 'OTP verification failed. Please try again.'
+        setError(msg)
+        return { success: false, message: msg }
+      }
+    } catch (error) {
+      console.error('OTP verification error:', error)
+      const msg = 'OTP verification failed. Please try again.'
+      setError(msg)
+      return { success: false, message: msg }
     } finally {
       setLoading(false)
     }
@@ -206,7 +265,6 @@ const useAuthStore = create<AuthStore>((set, get) => ({
       })
 
       if (result.success) {
-        // Store user data and token
         const backendUser = result.data.user
         const user: User = {
           id: backendUser.id,
@@ -217,12 +275,15 @@ const useAuthStore = create<AuthStore>((set, get) => ({
           dateOfBirth: backendUser.dateOfBirth || birthdate,
           phone: backendUser.phone || phone,
           role: backendUser.role || 'user',
+          twoFactorEnabled: false,
           birthdate: backendUser.dateOfBirth || birthdate,
         }
 
+        // ✅ FIX: Store token in state
         set({
           user,
           isLoggedIn: true,
+          token: result.data.token,
           firstName: '',
           lastName: '',
           email: '',
@@ -232,18 +293,14 @@ const useAuthStore = create<AuthStore>((set, get) => ({
           error: null,
         })
 
-        // Store token and user data in localStorage for future API calls
         if (typeof window !== 'undefined' && result.data.token) {
           localStorage.setItem('authToken', result.data.token)
           localStorage.setItem('authUser', JSON.stringify(user))
-          // Also set cookie for server-side middleware access
-          setCookie('authToken', result.data.token, 7) // 7 days expiry
+          setCookie('authToken', result.data.token, 7)
         }
 
-        // Navigate to home page instead of forcing to property page
         window.location.href = '/'
       } else {
-        // Handle errors
         setError(result.message || 'Sign up failed. Please try again.')
       }
     } catch (error) {
@@ -268,9 +325,7 @@ const useAuthStore = create<AuthStore>((set, get) => ({
     try {
       const response = await fetch('/api/auth/check-email', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       })
 
@@ -295,14 +350,15 @@ const useAuthStore = create<AuthStore>((set, get) => ({
     set({
       user: null,
       isLoggedIn: false,
+      token: null, // ✅ FIX: Clear token
       error: null,
       password: '',
       email: '',
       phone: '',
       signUpPassword: '',
+      tempToken: null,
     })
     
-    // Clear localStorage and cookies
     if (typeof window !== 'undefined') {
       localStorage.removeItem('authToken')
       localStorage.removeItem('authUser')
@@ -321,7 +377,25 @@ const useAuthStore = create<AuthStore>((set, get) => ({
     error: null,
   }),
 
-  // Initialize auth state from localStorage
+  checkAuthStatusOnLoad: async () => {
+    if (typeof window === 'undefined') {
+      set({ isAuthLoading: false });
+      return;
+    }
+    
+    try {
+      const token = localStorage.getItem('authToken');
+      if (token) {
+        await get().validateToken();
+      }
+    } catch (error) {
+      console.error("Auth status check failed", error);
+      get().logout();
+    } finally {
+      set({ isAuthLoading: false });
+    }
+  },
+
   initializeAuth: () => {
     if (typeof window === 'undefined') return
 
@@ -334,28 +408,26 @@ const useAuthStore = create<AuthStore>((set, get) => ({
         set({
           user,
           isLoggedIn: true,
+          token: storedToken, // ✅ FIX: Load token from storage
           error: null,
         })
-        
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[AUTH] Initialized with stored user:', user)
-        }
       }
     } catch (error) {
       console.error('Error initializing auth:', error)
-      // Clear corrupted data
       localStorage.removeItem('authToken')
       localStorage.removeItem('authUser')
       deleteCookie('authToken')
     }
   },
 
-  // Validate stored token and refresh user data with backend
   validateToken: async () => {
     if (typeof window === 'undefined') return false
 
     const token = localStorage.getItem('authToken')
-    if (!token) return false
+    if (!token) {
+      get().logout()
+      return false
+    }
 
     try {
       const response = await fetch('/api/auth/me', {
@@ -369,24 +441,8 @@ const useAuthStore = create<AuthStore>((set, get) => ({
       if (response.ok) {
         const result = await response.json()
         
-        // Debug logging for development
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[AUTH] validateToken response:', result)
-          console.log('[AUTH] result.data:', result.data)
-        }
-        
         if (result.success && result.data?.user) {
-          // Update user data with fresh data from backend
           const backendUser = result.data.user
-          
-          // Debug logging for backend user data
-          if (process.env.NODE_ENV === 'development') {
-            console.log('[AUTH] validateToken backendUser:', backendUser)
-            console.log('[AUTH] validateToken firstName:', backendUser.firstName)
-            console.log('[AUTH] validateToken lastName:', backendUser.lastName)
-            console.log('[AUTH] validateToken name:', backendUser.name)
-          }
-          
           const user: User = {
             id: backendUser.id,
             email: backendUser.email,
@@ -396,40 +452,32 @@ const useAuthStore = create<AuthStore>((set, get) => ({
             dateOfBirth: backendUser.dateOfBirth || '',
             phone: backendUser.phone || '',
             role: backendUser.role || 'user',
+            twoFactorEnabled: backendUser.isTwoFactorEnabled ?? backendUser.twoFactorEnabled ?? false,
             birthdate: backendUser.dateOfBirth || undefined,
           }
-          
-          // Debug logging for final user object
-          if (process.env.NODE_ENV === 'development') {
-            console.log('[AUTH] validateToken final user:', user)
-          }
 
+          // ✅ FIX: Ensure token is in state
           set({
             user,
             isLoggedIn: true,
+            token, 
             error: null,
           })
 
-          // Update stored user data
           localStorage.setItem('authUser', JSON.stringify(user))
           return true
-        } else if (process.env.NODE_ENV === 'development') {
-          console.log('[AUTH] validateToken failed - no success or data:', result)
         }
-      } else if (process.env.NODE_ENV === 'development') {
-        console.log('[AUTH] validateToken failed - response not ok:', response.status)
       }
       
-      // Token is invalid or response unsuccessful, clear auth state
       get().logout()
       return false
     } catch (error) {
       console.error('Token validation error:', error)
+      get().logout()
       return false
     }
   },
 
-  // Refresh user data from backend
   refreshUserData: async () => {
     if (typeof window === 'undefined') return false
 
@@ -449,7 +497,6 @@ const useAuthStore = create<AuthStore>((set, get) => ({
         const result = await response.json()
         
         if (result.success && result.data?.user) {
-          // Update user data with fresh data from backend
           const backendUser = result.data.user
           const user: User = {
             id: backendUser.id,
@@ -460,6 +507,7 @@ const useAuthStore = create<AuthStore>((set, get) => ({
             dateOfBirth: backendUser.dateOfBirth || '',
             phone: backendUser.phone || '',
             role: backendUser.role || 'user',
+            twoFactorEnabled: backendUser.isTwoFactorEnabled ?? backendUser.twoFactorEnabled ?? false,
             birthdate: backendUser.dateOfBirth || undefined,
           }
 
@@ -469,7 +517,6 @@ const useAuthStore = create<AuthStore>((set, get) => ({
             error: null,
           })
 
-          // Update stored user data
           localStorage.setItem('authUser', JSON.stringify(user))
           return true
         }

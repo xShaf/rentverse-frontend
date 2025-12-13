@@ -15,6 +15,20 @@ const nextConfig: NextConfig = {
         port: '',
         pathname: '/**',
       },
+      // ✅ Added for Property Images
+      {
+        protocol: 'https',
+        hostname: 'cdn.fazwaz.com',
+        port: '',
+        pathname: '/**',
+      },
+      // ✅ Added for Placeholders
+      {
+        protocol: 'https',
+        hostname: 'placehold.co',
+        port: '',
+        pathname: '/**',
+      },
     ],
   },
   async rewrites() {
