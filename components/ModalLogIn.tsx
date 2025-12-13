@@ -23,7 +23,8 @@ function ModalLogIn({ isModal = true }: ModalLogInProps) {
     isLoginFormValid,
     submitLogIn,
     submitOtp,
-    setError, // Need this to clear errors on mode switch
+    sendEmailOtp, // ✅ Import sendEmailOtp
+    setError,
   } = useAuthStore()
   
   const router = useRouter()
@@ -31,14 +32,25 @@ function ModalLogIn({ isModal = true }: ModalLogInProps) {
   // ✅ MFA Local State
   const [showMFAInput, setShowMFAInput] = useState(false)
   const [mfaToken, setMfaToken] = useState('')
+  const [emailSent, setEmailSent] = useState(false)
 
   const handleBackButton = () => {
     if (showMFAInput) {
       setShowMFAInput(false)
       setError(null)
       setMfaToken('')
+      setEmailSent(false)
     } else {
       router.back()
+    }
+  }
+
+  // ✅ Handle Email Link Click
+  const handleSendEmail = async () => {
+    setError(null)
+    const res = await sendEmailOtp()
+    if (res.success) {
+      setEmailSent(true)
     }
   }
 
@@ -57,7 +69,7 @@ function ModalLogIn({ isModal = true }: ModalLogInProps) {
     // ✅ 3. Check if Backend asks for MFA
     if (result && result.requireMFA) {
       setShowMFAInput(true)
-      setError(null) // Clear any "invalid password" errors if they appeared
+      setError(null) // Clear any "invalid password" errors
     }
   }
 
@@ -105,8 +117,35 @@ function ModalLogIn({ isModal = true }: ModalLogInProps) {
           ) : (
             /* --- MFA STEP --- */
             <div className="animate-in fade-in slide-in-from-right duration-300">
+              <div className="text-center mb-6">
+                <div className="mx-auto w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center mb-3">
+                  <Smartphone className="text-blue-600" size={24} />
+                </div>
+                
+                {/* Email Sent Message */}
+                {emailSent && (
+                  <p className="mb-2 text-sm font-medium text-green-600">
+                    ✅ Code sent to your email!
+                  </p>
+                )}
+
+                <p className="text-sm text-slate-600">
+                  Enter the 6-digit code from your authenticator app.
+                </p>
+
+                {/* Send Email Link */}
+                <button 
+                  type="button"
+                  onClick={handleSendEmail}
+                  disabled={emailSent || isLoading}
+                  className="mt-2 text-xs text-blue-600 hover:underline font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {emailSent ? 'Resend Email' : "Don't have your phone? Send code via Email"}
+                </button>
+              </div>
+
               <label htmlFor="mfa" className="block text-sm font-medium text-slate-900 mb-3">
-                Authenticator Code
+                Verification Code
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -124,9 +163,6 @@ function ModalLogIn({ isModal = true }: ModalLogInProps) {
                   autoComplete="one-time-code"
                 />
               </div>
-              <p className="mt-2 text-xs text-slate-500 text-center">
-                Enter the 6-digit code from your Google Authenticator app.
-              </p>
             </div>
           )}
 

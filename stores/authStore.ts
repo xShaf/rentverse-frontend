@@ -26,6 +26,8 @@ interface AuthActions {
   validateToken: () => Promise<boolean>
   refreshUserData: () => Promise<boolean>
   checkAuthStatusOnLoad: () => Promise<void>
+  // ✅ Added Email OTP method
+  sendEmailOtp: () => Promise<{ success: boolean; message?: string }>
 }
 
 interface AuthFormState {
@@ -38,7 +40,6 @@ interface AuthFormState {
   signUpPassword: string
 }
 
-// ✅ FIX: Added 'token' to the type definition
 type AuthStore = AuthState & AuthFormState & AuthActions & { 
   tempToken: string | null;
   isAuthLoading: boolean;
@@ -59,7 +60,7 @@ const useAuthStore = create<AuthStore>((set, get) => ({
   phone: '',
   signUpPassword: '',
   tempToken: null,
-  token: null, // ✅ FIX: Initialized token
+  token: null,
 
   setPassword: (password: string) => set({ password }),
   setFirstName: (firstName: string) => set({ firstName }),
@@ -119,12 +120,14 @@ const useAuthStore = create<AuthStore>((set, get) => ({
       
       const result = await response.json()
 
+      // ✅ STEP 1: Check if MFA is required
       if (result.requireMFA) {
         set({ tempToken: result.tempToken })
         setLoading(false)
         return { success: false, requireMFA: true, message: 'Please enter 2FA code' }
       }
 
+      // ✅ STEP 2: Standard Login Success
       if (response.ok && result.success) {
         const backendUser = result.data.user
         
@@ -141,7 +144,6 @@ const useAuthStore = create<AuthStore>((set, get) => ({
           birthdate: backendUser.dateOfBirth || undefined,
         }
 
-        // ✅ FIX: Store token in state
         set({
           user,
           isLoggedIn: true,
@@ -209,7 +211,6 @@ const useAuthStore = create<AuthStore>((set, get) => ({
           birthdate: backendUser.dateOfBirth || undefined,
         }
 
-        // ✅ FIX: Store token in state
         set({
           user,
           isLoggedIn: true,
@@ -238,6 +239,29 @@ const useAuthStore = create<AuthStore>((set, get) => ({
       const msg = 'OTP verification failed. Please try again.'
       setError(msg)
       return { success: false, message: msg }
+    } finally {
+      setLoading(false)
+    }
+  },
+
+  // ✅ New Action: Send Email OTP
+  sendEmailOtp: async () => {
+    const { tempToken, setLoading, setError } = get()
+    if (!tempToken) return { success: false, message: 'Session expired' }
+
+    setLoading(true)
+    try {
+      const res = await fetch('/api/auth/mfa/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tempToken }),
+      })
+      const result = await res.json()
+      
+      if (!result.success) setError(result.message)
+      return result
+    } catch (error) {
+      return { success: false, message: 'Failed to send email' }
     } finally {
       setLoading(false)
     }
@@ -279,7 +303,6 @@ const useAuthStore = create<AuthStore>((set, get) => ({
           birthdate: backendUser.dateOfBirth || birthdate,
         }
 
-        // ✅ FIX: Store token in state
         set({
           user,
           isLoggedIn: true,
@@ -350,7 +373,7 @@ const useAuthStore = create<AuthStore>((set, get) => ({
     set({
       user: null,
       isLoggedIn: false,
-      token: null, // ✅ FIX: Clear token
+      token: null,
       error: null,
       password: '',
       email: '',
@@ -408,7 +431,7 @@ const useAuthStore = create<AuthStore>((set, get) => ({
         set({
           user,
           isLoggedIn: true,
-          token: storedToken, // ✅ FIX: Load token from storage
+          token: storedToken,
           error: null,
         })
       }
@@ -456,7 +479,6 @@ const useAuthStore = create<AuthStore>((set, get) => ({
             birthdate: backendUser.dateOfBirth || undefined,
           }
 
-          // ✅ FIX: Ensure token is in state
           set({
             user,
             isLoggedIn: true,
