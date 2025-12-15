@@ -2,6 +2,7 @@
 
 import React, { useRef, useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import clsx from 'clsx'
 import { User, Settings, Home, Heart, Search, LogOut, Calendar, Shield, ClipboardList, Lock } from 'lucide-react'
 import useAuthStore from '@/stores/authStore'
@@ -15,6 +16,7 @@ interface UserDropdownProps {
 
 function UserDropdown({ isOpen, onClose, className }: Readonly<UserDropdownProps>): React.ReactNode {
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const router = useRouter()
   const { user } = useCurrentUser()
   const { logout } = useAuthStore()
 
@@ -82,6 +84,7 @@ function UserDropdown({ isOpen, onClose, className }: Readonly<UserDropdownProps
     onClose()
     // Redirect to home
     window.location.href = '/'
+    router.push('/')
   }
 
   if (!isOpen) return null
@@ -176,7 +179,7 @@ function UserDropdown({ isOpen, onClose, className }: Readonly<UserDropdownProps
           <span className="font-medium">My listings</span>
         </Link>
 
-        {(user?.role === 'LANDLORD' || user?.role === 'ADMIN') && (
+        {(user?.role === 'USER' || user?.role === 'ADMIN') && (
           <Link
             href="/manage/bookings"
             onClick={onClose}
