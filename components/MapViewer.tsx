@@ -7,8 +7,7 @@ import '@maptiler/sdk/dist/maptiler-sdk.css';
 interface MapViewerProps {
   center?: { lng: number; lat: number };
   zoom?: number;
-  // ✅ FIX: Allow style to be string OR object (any) to match maptilersdk.MapStyle.STREETS
-  style?: string | any; 
+  style?: string | maptilersdk.StyleSpecification | any; // Allow string or object
   className?: string;
   height?: string;
   width?: string;
@@ -26,7 +25,7 @@ interface MapViewerProps {
 const MapViewer = memo(function MapViewer({
   center = { lng: 101.6869, lat: 3.1390 }, // Default to KL
   zoom = 10,
-  style = maptilersdk.MapStyle.STREETS, // Now compatible with the interface
+  style = maptilersdk.MapStyle.STREETS,
   className = '',
   height = '100%',
   width = '100%',
@@ -61,7 +60,7 @@ const MapViewer = memo(function MapViewer({
 
       markersData.forEach((markerData) => {
         const marker = new maptilersdk.Marker({
-          color: markerData.color || '#3B82F6',
+          color: markerData.color || '#0D9488', // Rentverse Teal
         })
           .setLngLat([markerData.lng, markerData.lat])
           .addTo(mapInstance);
@@ -90,6 +89,7 @@ const MapViewer = memo(function MapViewer({
         center: [center.lng, center.lat],
         zoom: zoom,
         interactive: interactive,
+        attributionControl: false, // Cleaner UI
       });
 
       map.current.on('load', () => {
@@ -98,8 +98,8 @@ const MapViewer = memo(function MapViewer({
           onMapLoad(map.current);
         }
         // Initial markers load
-        if (map.current) {
-             addMarkers(map.current, markers);
+        if (map.current && markers.length > 0) {
+          addMarkers(map.current, markers);
         }
       });
 
@@ -123,7 +123,7 @@ const MapViewer = memo(function MapViewer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Empty dependency array = Only runs once on mount
 
-  // 5. Reactive Updates
+  // 5. Reactive Updates - Only run if map is loaded and props change
   useEffect(() => {
     if (map.current && isMapLoaded.current) {
       addMarkers(map.current, markers);
@@ -135,6 +135,7 @@ const MapViewer = memo(function MapViewer({
       map.current.flyTo({
         center: [center.lng, center.lat],
         zoom: zoom,
+        essential: true,
       });
     }
   }, [center.lng, center.lat, zoom]);

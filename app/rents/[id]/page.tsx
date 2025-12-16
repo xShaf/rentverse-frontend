@@ -1,13 +1,13 @@
 'use client'
 
 import Image from 'next/image'
-import { useState, useEffect, use } from 'react'
+import { useState, useEffect, use, useMemo } from 'react'
 import ContentWrapper from '@/components/ContentWrapper'
 import BarProperty from '@/components/BarProperty'
 import ImageGallery from '@/components/ImageGallery'
 import MapViewer from '@/components/MapViewer'
 import SignatureModal from '@/components/SignatureModal'
-import { Download, Share, Calendar, User, MapPin, Home, PenTool } from 'lucide-react'
+import { Download, Share, Calendar, User, MapPin, Home, PenTool, Clock } from 'lucide-react'
 import { ShareService } from '@/utils/shareService'
 import useAuthStore from '@/stores/authStore'
 import { createApiUrl } from '@/utils/apiConfig'
@@ -175,7 +175,6 @@ function RentDetailPage({ params }: { readonly params: Promise<{ id: string }> }
     setIsAgreementLoading(false);
   }
 
-  // Load status once booking is ready
   useEffect(() => {
     if (booking) {
         refreshAgreementStatus();
@@ -300,7 +299,7 @@ function RentDetailPage({ params }: { readonly params: Promise<{ id: string }> }
   }
 
   const renderAgreementAction = () => {
-    if (isAgreementLoading) return <p className="text-sm text-slate-500">Checking status...</p>;
+    if (isAgreementLoading) return <p className="text-sm text-slate-500 text-center">Checking status...</p>;
     
     const status = agreementStatus?.status || 'NOT_INITIALIZED';
     const isTenant = user?.id === booking?.tenantId;
@@ -333,7 +332,12 @@ function RentDetailPage({ params }: { readonly params: Promise<{ id: string }> }
                 </button>
             );
         }
-        return <p className="text-sm text-yellow-600 bg-yellow-50 p-3 rounded-lg text-center">Waiting for Tenant to sign...</p>;
+        return (
+          <div className="flex items-center justify-center space-x-2 px-4 py-3 bg-yellow-50 text-yellow-800 rounded-xl text-sm w-full">
+            <Clock size={16} />
+            <span>Waiting for Tenant to sign...</span>
+          </div>
+        );
     }
 
     if (status === 'PENDING_LANDLORD') {
@@ -348,11 +352,33 @@ function RentDetailPage({ params }: { readonly params: Promise<{ id: string }> }
                 </button>
             );
         }
-        return <p className="text-sm text-yellow-600 bg-yellow-50 p-3 rounded-lg text-center">Waiting for Landlord to sign...</p>;
+        return (
+          <div className="flex items-center justify-center space-x-2 px-4 py-3 bg-yellow-50 text-yellow-800 rounded-xl text-sm w-full">
+            <Clock size={16} />
+            <span>Waiting for Landlord to sign...</span>
+          </div>
+        );
     }
 
     return <p className="text-sm text-slate-400 text-center">Agreement not initialized.</p>;
   };
+
+  // 4. MEMOIZED MAP PROPS
+  // This ensures the map doesn't receive new object references when state changes (like opening the modal)
+  const mapCenter = useMemo(() => ({ 
+    lng: booking?.property?.longitude || 102.2386, 
+    lat: booking?.property?.latitude || 6.1254 
+  }), [booking?.property?.longitude, booking?.property?.latitude]);
+
+  const mapMarkers = useMemo(() => {
+    if (!booking?.property?.latitude || !booking?.property?.longitude) return [];
+    return [{
+        lng: booking.property.longitude,
+        lat: booking.property.latitude,
+        popup: `<div class="p-2"><h3 class="font-semibold">${booking.property.title}</h3><p class="text-sm text-slate-600">${booking.property.address}, ${booking.property.city}</p></div>`,
+        color: '#0d9488',
+    }];
+  }, [booking?.property?.latitude, booking?.property?.longitude, booking?.property?.title, booking?.property?.address, booking?.property?.city]);
 
   if (!isLoggedIn) {
     return (
@@ -500,7 +526,16 @@ function RentDetailPage({ params }: { readonly params: Promise<{ id: string }> }
         </div>
         <div className="w-full h-64 md:h-80 bg-slate-100 rounded-2xl overflow-hidden border border-slate-200">
           {booking.property.latitude && booking.property.longitude ? (
-            <MapViewer center={{ lng: booking.property.longitude, lat: booking.property.latitude }} zoom={15} style="streets-v2" className="w-full h-full" height="100%" width="100%" markers={[{ lng: booking.property.longitude, lat: booking.property.latitude, popup: `<div class="p-3"><h3 class="font-semibold text-slate-900 mb-2">${booking.property.title}</h3><p class="text-sm text-slate-600">${booking.property.city}</p></div>`, color: '#0d9488' }]} interactive={true} />
+            <MapViewer 
+              center={mapCenter} 
+              zoom={15} 
+              style="streets-v2" 
+              className="w-full h-full" 
+              height="100%" 
+              width="100%" 
+              markers={mapMarkers} 
+              interactive={true} 
+            />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-slate-500">
               <div className="text-center"><MapPin size={48} className="mx-auto mb-2 text-slate-400" /><p>Location not available</p></div>

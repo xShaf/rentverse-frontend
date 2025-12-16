@@ -14,6 +14,16 @@ export const useFavorites = (page: number = 1, limit: number = 10) => {
   })
 
   const fetchFavorites = useCallback(async () => {
+    // 1. Check if token exists in localStorage (Client-side only)
+    const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null
+
+    // 2. If no token, stop execution immediately (Guest User)
+    if (!token) {
+      setFavorites([])
+      setIsLoading(false)
+      return
+    }
+
     try {
       setIsLoading(true)
       setError(null)

@@ -132,7 +132,7 @@ function UserDropdown({ isOpen, onClose, className }: Readonly<UserDropdownProps
                 className="flex items-center justify-center w-full px-4 py-3 bg-teal-600 text-white rounded-xl font-medium hover:bg-teal-700 transition-colors"
               >
                 <LogIn size={18} className="mr-2" />
-                Log In
+                Sign Up
               </Link>
               <div className="border-t border-slate-100 my-4"></div>
             </div>
