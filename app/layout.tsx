@@ -13,29 +13,34 @@ const poly = Poly({
   weight: '400',
   subsets: ['latin'],
   variable: '--font-poly',
+  display: 'swap',
 })
 
 const manrope = Manrope({
   subsets: ['latin'],
   variable: '--font-manrope',
+  display: 'swap',
 })
 
 export const metadata: Metadata = {
   title: 'Rentverse',
-  description: 'Your rental platform',
+  description: 'Your rental platform for apartments, houses, and more.',
+  viewport: 'width=device-width, initial-scale=1, maximum-scale=1',
 }
 
 export default function RootLayout({
-                                     children,
-                                   }: Readonly<{
+  children,
+}: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
     <html lang="en" className={clsx([poly.className, manrope.className])}>
-    <body>
-      <AuthInitializer />
-      {children}
-    </body>
+      <body className="antialiased min-h-screen flex flex-col bg-white">
+        <AuthInitializer />
+        <main className="flex-1">
+          {children}
+        </main>
+      </body>
     </html>
   )
 }

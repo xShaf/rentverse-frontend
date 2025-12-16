@@ -22,7 +22,7 @@ function AuthCallbackContent() {
         return
       }
 
-      if (provider !== 'google') {
+      if (provider && !['google', 'facebook', 'github', 'twitter', 'apple'].includes(provider)) {
         console.error('Invalid provider:', provider)
         router.push('/auth?error=invalid_provider')
         return
@@ -37,8 +37,14 @@ function AuthCallbackContent() {
         const isValid = await validateToken()
         
         if (isValid) {
-          // Redirect to home page on successful authentication
-          router.push('/')
+          // Check for 'isNewUser' flag passed from backend for social logins
+          const isNewUser = searchParams.get('isNewUser') === 'true'
+          
+          if (isNewUser) {
+             router.push('/auth/complete-profile')
+          } else {
+             router.push('/')
+          }
         } else {
           // Token validation failed
           localStorage.removeItem('authToken')
@@ -56,15 +62,17 @@ function AuthCallbackContent() {
 
   return (
     <ContentWrapper>
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-center space-y-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto"></div>
-          <h2 className="text-xl font-semibold text-slate-900">
-            Completing sign in...
-          </h2>
-          <p className="text-slate-600">
-            Please wait while we verify your authentication.
-          </p>
+      <div className="flex flex-col items-center justify-center min-h-[60vh] px-4 text-center">
+        <div className="space-y-6">
+          <div className="animate-spin rounded-full h-12 w-12 sm:h-16 sm:w-16 border-b-4 border-teal-600 mx-auto"></div>
+          <div className="space-y-2">
+            <h2 className="text-xl sm:text-2xl font-semibold text-slate-900">
+              Completing sign in...
+            </h2>
+            <p className="text-sm sm:text-base text-slate-600 max-w-xs mx-auto">
+              Please wait while we verify your authentication details.
+            </p>
+          </div>
         </div>
       </div>
     </ContentWrapper>
@@ -75,12 +83,10 @@ export default function AuthCallbackPage() {
   return (
     <Suspense fallback={
       <ContentWrapper>
-        <div className="min-h-screen flex items-center justify-center">
+        <div className="min-h-screen flex items-center justify-center px-4">
           <div className="text-center space-y-4">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto"></div>
-            <h2 className="text-xl font-semibold text-slate-900">
-              Loading...
-            </h2>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-teal-600 mx-auto"></div>
+            <h2 className="text-lg font-medium text-slate-900">Loading...</h2>
           </div>
         </div>
       </ContentWrapper>

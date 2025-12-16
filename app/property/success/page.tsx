@@ -1,75 +1,56 @@
 'use client'
 
-import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { Check } from 'lucide-react'
-import ButtonFilled from '@/components/ButtonFilled'
-import ButtonSecondary from '@/components/ButtonSecondary'
+import Link from 'next/link'
+import Image from 'next/image'
+import ContentWrapper from '@/components/ContentWrapper'
+import { CheckCircle, Home, Plus } from 'lucide-react'
 
-function PropertySubmissionSuccess() {
-  const router = useRouter()
-
-  useEffect(() => {
-    // Optional: Auto-redirect after a delay
-    const timer = setTimeout(() => {
-      // router.push('/dashboard')
-    }, 30000) // 30 seconds
-
-    return () => clearTimeout(timer)
-  }, [router])
-
-  const handleViewProperty = () => {
-    // Navigate to the property listing or dashboard
-    router.push('/property/all')
-  }
-
-  const handleCreateAnother = () => {
-    // Navigate back to create new property
-    router.push('/property/new')
-  }
-
+function SuccessPage() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-teal-50 to-green-50 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center">
-        {/* Success Icon */}
-        <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-6">
-          <Check size={32} className="text-green-600" />
+    <ContentWrapper>
+      <div className="flex flex-col items-center justify-center min-h-[60vh] py-12 px-4 text-center">
+        {/* Success Icon/Image */}
+        <div className="relative w-32 h-32 sm:w-48 sm:h-48 mb-8">
+          <Image
+            src="https://res.cloudinary.com/dqhuvu22u/image/upload/f_webp/v1758310328/rentverse-base/image_17_hsznyz.png"
+            alt="Success"
+            fill
+            className="object-contain"
+          />
+          <div className="absolute -bottom-2 -right-2 bg-green-100 p-3 rounded-full border-4 border-white">
+            <CheckCircle className="w-8 h-8 text-green-600" />
+          </div>
         </div>
 
-        {/* Success Message */}
-        <h1 className="text-2xl font-bold text-slate-900 mb-4">
-          Property Listed Successfully!
+        {/* Text Content */}
+        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-4">
+          Listing Published Successfully!
         </h1>
-        
-        <p className="text-slate-600 mb-8">
-          Congratulations! Your property has been submitted and is now live on Rentverse. 
-          Potential tenants can now discover and contact you about your listing.
+        <p className="text-slate-600 text-base sm:text-lg max-w-md mb-10 leading-relaxed">
+          Your property is now live and visible to thousands of potential tenants on Rentverse.
         </p>
 
         {/* Action Buttons */}
-        <div className="space-y-3">
-          <ButtonFilled onClick={handleViewProperty} className="w-full">
-            View My Properties
-          </ButtonFilled>
+        <div className="flex flex-col sm:flex-row gap-4 w-full max-w-md">
+          <Link
+            href="/property/all"
+            className="flex-1 flex items-center justify-center space-x-2 px-6 py-3.5 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-colors font-medium"
+          >
+            <Home size={18} />
+            <span>View My Listings</span>
+          </Link>
           
-          <ButtonSecondary 
-            onClick={handleCreateAnother} 
-            className="w-full" 
-            label="Create Another Listing"
-          />
-        </div>
-
-        {/* Additional Info */}
-        <div className="mt-8 p-4 bg-blue-50 rounded-lg">
-          <p className="text-sm text-blue-800">
-            <strong>What&apos;s Next?</strong><br />
-            You&apos;ll receive email notifications when someone shows interest in your property. 
-            You can manage your listings from your dashboard anytime.
-          </p>
+          <Link
+            href="/property/new"
+            className="flex-1 flex items-center justify-center space-x-2 px-6 py-3.5 bg-white border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 transition-colors font-medium"
+          >
+            <Plus size={18} />
+            <span>List Another</span>
+          </Link>
         </div>
       </div>
-    </div>
+    </ContentWrapper>
   )
 }
 
-export default PropertySubmissionSuccess
+export default SuccessPage

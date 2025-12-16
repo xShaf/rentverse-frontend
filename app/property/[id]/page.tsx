@@ -19,16 +19,12 @@ function DetailPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Fetch property data and log view in one call
   useEffect(() => {
     const fetchPropertyAndLogView = async () => {
       if (!propertyId) return
-      
       try {
         setIsLoading(true)
-        // Use the view logging API which returns complete property data
         const viewResponse = await PropertiesApiClient.logPropertyView(propertyId)
-        
         if (viewResponse.success && viewResponse.data.property) {
           setProperty(viewResponse.data.property)
         } else {
@@ -41,48 +37,35 @@ function DetailPage() {
         setIsLoading(false)
       }
     }
-
     fetchPropertyAndLogView()
   }, [propertyId])
 
-  // Handle favorite change callback
   const handleFavoriteChange = (isFavorited: boolean, favoriteCount: number) => {
     if (property) {
-      setProperty(prev => prev ? {
-        ...prev,
-        isFavorited,
-        favoriteCount
-      } : null)
+      setProperty(prev => prev ? { ...prev, isFavorited, favoriteCount } : null)
     }
   }
 
-  // Loading state
   if (isLoading) {
     return (
       <ContentWrapper>
         <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="text-center">
-            <div className="text-lg text-slate-600">Loading property details...</div>
-          </div>
+          <div className="text-center text-lg text-slate-600">Loading property details...</div>
         </div>
       </ContentWrapper>
     )
   }
 
-  // Error state
   if (error || !property) {
     return (
       <ContentWrapper>
         <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="text-center">
-            <div className="text-lg text-red-600">{error || 'Property not found'}</div>
-          </div>
+          <div className="text-center text-lg text-red-600">{error || 'Property not found'}</div>
         </div>
       </ContentWrapper>
     )
   }
 
-  // Fallback images if property doesn't have images
   const tempImage: [string, string, string, string, string] = [
     'https://res.cloudinary.com/dqhuvu22u/image/upload/f_webp/v1758016984/rentverse-rooms/Gemini_Generated_Image_5hdui35hdui35hdu_s34nx6.png',
     'https://res.cloudinary.com/dqhuvu22u/image/upload/f_webp/v1758211360/rentverse-rooms/Gemini_Generated_Image_ockiwbockiwbocki_vmmlhm.png',
@@ -91,15 +74,12 @@ function DetailPage() {
     'https://res.cloudinary.com/dqhuvu22u/image/upload/f_webp/v1758211362/rentverse-rooms/Gemini_Generated_Image_2wt0y22wt0y22wt0_ocdafo.png',
   ]
 
-  // Use property images or fallback to temp images
   const displayImages = property.images && property.images.length >= 5 
     ? property.images.slice(0, 5) as [string, string, string, string, string]
     : tempImage
 
-  // Format price for display
   const displayPrice = typeof property.price === 'string' ? parseFloat(property.price) : property.price
 
-  // Create share data using ShareService
   const shareData = ShareService.createPropertyShareData({
     title: property.title,
     bedrooms: property.bedrooms,
@@ -122,97 +102,88 @@ function DetailPage() {
       <section className="space-y-6">
         <ImageGallery images={displayImages} />
 
-        {/* Main content area */}
-        <div className="mx-auto w-full max-w-6xl grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left side - Property details and description */}
+        <div className="mx-auto w-full max-w-6xl grid grid-cols-1 lg:grid-cols-3 gap-8 px-4 md:px-0">
           <div className="lg:col-span-2 space-y-6">
-            {/* Property header */}
-            <div className="flex justify-between space-y-4">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
               <div>
-                <h1 className="text-2xl font-semibold text-teal-600">
+                <h1 className="text-xl sm:text-2xl font-semibold text-teal-600">
                   {property.isAvailable ? 'Available to rent now!' : 'Currently not available'}
                 </h1>
-                <p className="text-slate-600 text-lg">
+                <p className="text-slate-600 text-base sm:text-lg mt-1">
                   {property.bedrooms} bedrooms • {property.bathrooms} bathroom • {property.areaSqm} Sqm
                 </p>
               </div>
 
-              {/* Stats section */}
-              <div className="flex items-center space-x-8">
-                <div className="flex items-center space-x-8">
+              <div className="flex flex-wrap items-center gap-6 bg-slate-50 p-4 rounded-xl sm:bg-transparent sm:p-0">
+                <div className="flex items-center gap-3">
                   <Image
                     src="https://res.cloudinary.com/dqhuvu22u/image/upload/v1758219434/rentverse-base/icon-star_kwohms.png"
                     width={24}
                     height={24}
                     alt="Star icon"
-                    className="w-12 h-12"
+                    className="w-10 h-10 sm:w-12 sm:h-12"
                   />
                   <div className="text-center">
-                    <div className="text-xl font-semibold text-slate-900">
+                    <div className="text-lg sm:text-xl font-semibold text-slate-900">
                       {property.averageRating > 0 ? property.averageRating.toFixed(1) : '4.8'}
                     </div>
-                    <div className="text-sm text-slate-500">
-                      {property.totalRatings > 0 ? `${property.totalRatings} reviews` : 'Guest reviews'}
+                    <div className="text-xs sm:text-sm text-slate-500">
+                      {property.totalRatings > 0 ? `${property.totalRatings} reviews` : 'Reviews'}
                     </div>
                   </div>
                 </div>
 
+                <div className="h-8 w-px bg-slate-300 hidden sm:block"></div>
+
                 <div className="text-center">
-                  <div className="text-xl font-semibold text-slate-900">
+                  <div className="text-lg sm:text-xl font-semibold text-slate-900">
                     {property.viewCount > 1000 ? `${Math.floor(property.viewCount / 1000)}K` : property.viewCount}
                   </div>
-                  <div className="text-sm text-slate-500">Viewers</div>
+                  <div className="text-xs sm:text-sm text-slate-500">Viewers</div>
                 </div>
               </div>
             </div>
 
-            {/* Description */}
-            <div>
-              <p className="text-slate-600 leading-relaxed">
-                {property.description || 'Lorem ipsum dolor sit amet consectetur. Nisl ac mi turpis commodo. Velit tristique lobortis imperdiet aliquam eget. Ultrices diam fringilla sollicitudin dignissim elementum ultrices. Volutpat volutpat in amet ipsum libero. Amet ultrices sit pretium eu enim mi. Sit euismod vel posuere adipiscing nisi auctor. Sit a malesuada arcu morbi amet. Ut nunc mauris dolor sit sagittis eget sed. Nisl porttitor in nascetur maecenas semper massa.'}
+            <div className="prose prose-slate max-w-none">
+              <p className="text-slate-600 leading-relaxed text-sm sm:text-base">
+                {property.description || 'No description provided.'}
               </p>
             </div>
           </div>
 
-          {/* Right side - Booking box */}
           <div className="lg:col-span-1">
-            <BoxPropertyPrice 
-              price={displayPrice} 
-              propertyId={property.id} 
-              ownerId={property.ownerId}
-            />
+            <div className="sticky top-24">
+              <BoxPropertyPrice 
+                price={displayPrice} 
+                propertyId={property.id} 
+                ownerId={property.ownerId}
+              />
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Location section */}
-      <section className="mx-auto w-full max-w-6xl space-y-6 py-8">
+      <section className="mx-auto w-full max-w-6xl space-y-6 py-8 pb-20 px-4 md:px-0">
         <div className="text-center space-y-2">
-          <h2 className="font-serif text-3xl text-teal-900">Where you will be</h2>
-          <p className="text-lg text-slate-600">
+          <h2 className="font-serif text-2xl sm:text-3xl text-teal-900">Where you will be</h2>
+          <p className="text-base sm:text-lg text-slate-600">
             {property.address}, {property.city}, {property.state}, {property.country === 'MY' ? 'Malaysia' : property.country}
           </p>
         </div>
 
-        {/* MapTiler Map */}
-        <div className="w-full h-80 rounded-2xl overflow-hidden border border-slate-200">
+        <div className="w-full h-64 sm:h-80 rounded-2xl overflow-hidden border border-slate-200">
           <MapViewer
-            center={{ 
-              lng: property.longitude || 102.2386, 
-              lat: property.latitude || 6.1254 
-            }}
+            center={{ lng: property.longitude || 102.2386, lat: property.latitude || 6.1254 }}
             zoom={14}
             style="streets-v2"
-            height="320px"
+            height="100%"
             width="100%"
-            markers={[
-              {
+            markers={[{
                 lng: property.longitude || 102.2386,
                 lat: property.latitude || 6.1254,
                 popup: `<div class="p-2"><h3 class="font-semibold">${property.title}</h3><p class="text-sm text-slate-600">${property.address}, ${property.city}</p></div>`,
                 color: '#0d9488',
-              },
-            ]}
+            }]}
             className="rounded-2xl"
           />
         </div>

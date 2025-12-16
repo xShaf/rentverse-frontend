@@ -2,12 +2,11 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useState, useEffect } from 'react' // ✅ Import hooks
+import { useState, useEffect } from 'react'
 import useAuthStore from '@/stores/authStore'
 import ContentWrapper from '@/components/ContentWrapper'
 import { Shield, User, LogOut, ChevronRight, Activity, Smartphone, Monitor } from 'lucide-react'
 
-// ✅ Define Log Interface
 interface ActivityLog {
   id: string
   action: string
@@ -20,10 +19,9 @@ interface ActivityLog {
 export default function AccountPage() {
   const { user, logout } = useAuthStore()
   const router = useRouter()
-  const [logs, setLogs] = useState<ActivityLog[]>([]) // ✅ State for logs
+  const [logs, setLogs] = useState<ActivityLog[]>([])
   const [loadingLogs, setLoadingLogs] = useState(false)
 
-  // ✅ Fetch Logs on Mount
   useEffect(() => {
     const fetchLogs = async () => {
       try {
@@ -53,14 +51,12 @@ export default function AccountPage() {
     router.push('/')
   }
 
-  // ✅ Helper to format date
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString('en-US', {
       month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
     })
   }
 
-  // ✅ Helper to clean User Agent
   const getDeviceName = (ua: string) => {
     if (!ua) return 'Unknown Device'
     if (ua.includes('Mobile')) return 'Mobile Device'
@@ -73,9 +69,9 @@ export default function AccountPage() {
 
   return (
     <ContentWrapper>
-      <div className="max-w-2xl mx-auto py-10 px-4">
-        <h1 className="text-3xl font-bold text-slate-900 mb-2">Account</h1>
-        <p className="text-slate-500 mb-8">{user.name} • {user.email}</p>
+      <div className="max-w-2xl mx-auto py-6 sm:py-10 px-4 mb-20">
+        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-2">Account</h1>
+        <p className="text-sm sm:text-base text-slate-500 mb-8">{user.name} • {user.email}</p>
 
         <div className="space-y-6">
           {/* Profile Section */}
@@ -85,12 +81,12 @@ export default function AccountPage() {
             </div>
             <div className="p-4">
                 <div className="flex justify-between py-3 border-b border-slate-50">
-                    <span className="text-slate-500">Full Name</span>
-                    <span className="font-medium text-slate-900">{user.firstName} {user.lastName}</span>
+                    <span className="text-slate-500 text-sm sm:text-base">Full Name</span>
+                    <span className="font-medium text-slate-900 text-sm sm:text-base text-right">{user.firstName} {user.lastName}</span>
                 </div>
                 <div className="flex justify-between py-3">
-                    <span className="text-slate-500">Phone</span>
-                    <span className="font-medium text-slate-900">{user.phone || 'Not set'}</span>
+                    <span className="text-slate-500 text-sm sm:text-base">Phone</span>
+                    <span className="font-medium text-slate-900 text-sm sm:text-base text-right">{user.phone || 'Not set'}</span>
                 </div>
             </div>
           </div>
@@ -100,12 +96,10 @@ export default function AccountPage() {
             <div className="p-4 border-b border-slate-100 font-semibold text-slate-900 flex items-center gap-2 bg-slate-50/50">
                 <Shield size={18} className="text-teal-600" /> Security
             </div>
-            
-            {/* Link to 2FA Page */}
             <Link href="/account/2fa" className="flex items-center justify-between p-4 hover:bg-slate-50 transition-colors cursor-pointer group">
                 <div>
-                    <div className="font-medium text-slate-900">Two-Factor Authentication</div>
-                    <div className="text-sm text-slate-500">
+                    <div className="font-medium text-slate-900 text-sm sm:text-base">Two-Factor Authentication</div>
+                    <div className="text-xs sm:text-sm text-slate-500">
                         {user.twoFactorEnabled ? 'Enabled' : 'Not enabled'}
                     </div>
                 </div>
@@ -113,7 +107,7 @@ export default function AccountPage() {
             </Link>
           </div>
 
-          {/* ✅ RECENT ACTIVITY LOGS */}
+          {/* Activity Logs */}
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
             <div className="p-4 border-b border-slate-100 font-semibold text-slate-900 flex items-center gap-2 bg-slate-50/50">
                 <Activity size={18} className="text-teal-600" /> Recent Activity
@@ -125,31 +119,27 @@ export default function AccountPage() {
                 <div className="p-6 text-center text-slate-400 text-sm">No recent activity recorded.</div>
               ) : (
                 logs.map((log) => (
-                  <div key={log.id} className="p-4 flex items-start justify-between hover:bg-slate-50 transition-colors">
+                  <div key={log.id} className="p-4 flex flex-col sm:flex-row sm:items-start justify-between hover:bg-slate-50 transition-colors gap-2 sm:gap-0">
                     <div className="flex items-start gap-3">
-                      <div className={`mt-1 p-1.5 rounded-full ${log.action.includes('FAILED') ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
-                        {/* Dynamic Icon based on parsed OS */}
+                      <div className={`mt-1 p-1.5 rounded-full flex-shrink-0 ${log.action.includes('FAILED') ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
                         {log.details?.os?.includes('Android') || log.details?.os?.includes('iOS') ? 
                           <Smartphone size={14} /> : <Monitor size={14} />}
                       </div>
-                      <div>
-                        <p className="text-sm font-medium text-slate-900">
+                      <div className="min-w-0"> {/* Prevent flex overflow */}
+                        <p className="text-sm font-medium text-slate-900 truncate">
                           {log.action.replace(/_/g, ' ')}
                         </p>
-                        
-                        {/* ✅ IMPROVED: Show Location and Parsed Device Name */}
-                        <p className="text-xs text-slate-500">
+                        <p className="text-xs text-slate-500 truncate">
                           {log.details?.device || getDeviceName(log.userAgent)} 
-                          <span className="mx-1">•</span> 
-                          {log.details?.location || log.ipAddress}
+                          <span className="mx-1 hidden sm:inline">•</span> 
+                          <span className="block sm:inline">{log.details?.location || log.ipAddress}</span>
                         </p>
-                        
                         {log.action.includes('FAILED') && log.details?.reason && (
                             <p className="text-xs text-red-500 mt-0.5">Reason: {log.details.reason}</p>
                         )}
                       </div>
                     </div>
-                    <div className="text-xs text-slate-400 whitespace-nowrap">
+                    <div className="text-xs text-slate-400 sm:whitespace-nowrap pl-10 sm:pl-0">
                       {formatDate(log.createdAt)}
                     </div>
                   </div>
@@ -158,7 +148,6 @@ export default function AccountPage() {
             </div>
           </div>
 
-          {/* Logout */}
           <button 
             onClick={handleLogout}
             className="w-full bg-red-50 text-red-600 font-medium p-4 rounded-2xl flex items-center justify-center gap-2 hover:bg-red-100 transition-colors"

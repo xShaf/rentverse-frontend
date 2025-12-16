@@ -10,7 +10,7 @@ import BoxError from '@/components/BoxError'
 import { ArrowLeft } from 'lucide-react'
 
 export default function TwoFactorAuthPage() {
-  const { user, token } = useAuthStore() // Access state directly
+  const { user } = useAuthStore()
   const router = useRouter()
   
   const [qrCode, setQrCode] = useState<string | null>(null)
@@ -20,26 +20,19 @@ export default function TwoFactorAuthPage() {
   const [error, setError] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
 
-  // Redirect if not logged in
   useEffect(() => {
-    if (!user && !loading) {
-        // Optional: handle redirect or let AuthGuard handle it
-    }
-  }, [user, loading])
+    // optional guard logic
+  }, [user])
 
   const handleGenerateSecret = async () => {
     setLoading(true)
     setError('')
     try {
-      // ✅ Correct API Endpoint (GET)
       const res = await fetch('/api/auth/mfa/setup', {
         method: 'GET',
-        headers: { 
-            Authorization: `Bearer ${localStorage.getItem('authToken')}` 
-        },
+        headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` },
       })
       const result = await res.json()
-      
       if (result.success) {
         setSecret(result.data.secret)
         setQrCode(result.data.qrCode)
@@ -56,7 +49,6 @@ export default function TwoFactorAuthPage() {
     setLoading(true)
     setError('')
     try {
-      // ✅ Correct API Endpoint (POST)
       const res = await fetch('/api/auth/mfa/enable', {
         method: 'POST',
         headers: { 
@@ -69,9 +61,8 @@ export default function TwoFactorAuthPage() {
       
       if (result.success || res.ok) {
         setSuccessMsg('✅ 2FA has been successfully enabled!')
-        setQrCode(null) // Hide QR code on success
+        setQrCode(null)
         setSecret(null)
-        // Update local user state
         if (user) {
             useAuthStore.setState({ user: { ...user, twoFactorEnabled: true } })
         }
@@ -88,13 +79,13 @@ export default function TwoFactorAuthPage() {
 
   return (
     <ContentWrapper>
-      <div className="max-w-md mx-auto py-10 px-4">
+      <div className="max-w-md mx-auto py-6 sm:py-10 px-4">
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">
             <button onClick={() => router.back()} className="p-2 hover:bg-slate-100 rounded-full transition">
                 <ArrowLeft size={20} />
             </button>
-            <h1 className="text-2xl font-bold text-slate-900">Two-Factor Authentication</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Two-Factor Authentication</h1>
         </div>
 
         {/* Status Card */}
@@ -105,16 +96,11 @@ export default function TwoFactorAuthPage() {
                     {user.twoFactorEnabled ? 'Enabled' : 'Disabled'}
                 </span>
             </div>
-            
-            {user.twoFactorEnabled ? (
-                <p className="text-sm text-slate-500">
-                    Your account is secure. You will be asked for a code when logging in from a new device.
-                </p>
-            ) : (
-                <p className="text-sm text-slate-500">
-                    Add an extra layer of security to your account by requiring a code when logging in.
-                </p>
-            )}
+            <p className="text-sm text-slate-500">
+                {user.twoFactorEnabled 
+                    ? 'Your account is secure. You will be asked for a code when logging in from a new device.'
+                    : 'Add an extra layer of security to your account by requiring a code when logging in.'}
+            </p>
         </div>
 
         {/* Setup Flow */}
@@ -131,13 +117,13 @@ export default function TwoFactorAuthPage() {
                         {/* QR Code Image */}
                         <div className="flex justify-center mb-6">
                             <div className="p-2 bg-white border border-slate-100 rounded-xl shadow-sm">
-                                <Image src={qrCode} alt="2FA QR Code" width={180} height={180} className="rounded-lg" />
+                                <Image src={qrCode} alt="2FA QR Code" width={180} height={180} className="rounded-lg w-40 h-40 sm:w-48 sm:h-48" />
                             </div>
                         </div>
 
                         <div className="text-center mb-6">
                             <p className="text-xs text-slate-500 mb-2">Can't scan? Enter this code manually:</p>
-                            <code className="bg-slate-100 px-3 py-1 rounded text-sm font-mono text-slate-800 tracking-wider">
+                            <code className="bg-slate-100 px-3 py-1 rounded text-sm font-mono text-slate-800 tracking-wider break-all">
                                 {secret}
                             </code>
                         </div>
@@ -151,7 +137,7 @@ export default function TwoFactorAuthPage() {
                                     value={otp}
                                     onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
                                     placeholder="000 000"
-                                    className="w-full p-4 text-center text-xl tracking-[0.5em] font-mono outline-none text-slate-900 placeholder-slate-300"
+                                    className="w-full p-4 text-center text-lg sm:text-xl tracking-[0.5em] font-mono outline-none text-slate-900 placeholder-slate-300"
                                 />
                             </div>
                         </div>
@@ -164,18 +150,8 @@ export default function TwoFactorAuthPage() {
             </div>
         )}
 
-        {/* Messages */}
-        {error && (
-            <div className="mt-6">
-                <BoxError errorTitle="Authentication Error" errorDescription={error} />
-            </div>
-        )}
-
-        {successMsg && (
-            <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-xl text-green-800 text-center font-medium">
-                {successMsg}
-            </div>
-        )}
+        {error && <div className="mt-6"><BoxError errorTitle="Authentication Error" errorDescription={error} /></div>}
+        {successMsg && <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-xl text-green-800 text-center font-medium">{successMsg}</div>}
       </div>
     </ContentWrapper>
   )

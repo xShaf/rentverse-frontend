@@ -55,12 +55,15 @@ function NewPropertyPage() {
   if (!ComponentToRender) {
     return (
       <EnhancedQuestionnaireWrapper showProgressTracker={showProgressTracker}>
-        <div className="text-center p-8">
-          <h2 className="text-2xl font-semibold text-slate-900 mb-4">
+        <div className="flex flex-col items-center justify-center min-h-[50vh] text-center p-8">
+          <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mb-4">
+            <span className="text-2xl">⚠️</span>
+          </div>
+          <h2 className="text-xl sm:text-2xl font-semibold text-slate-900 mb-2">
             Component not found
           </h2>
-          <p className="text-slate-600">
-            The requested step component could not be loaded.
+          <p className="text-slate-600 max-w-sm mx-auto">
+            The requested step component could not be loaded. Please try refreshing the page.
           </p>
         </div>
       </EnhancedQuestionnaireWrapper>

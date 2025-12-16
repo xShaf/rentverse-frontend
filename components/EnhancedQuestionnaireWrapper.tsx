@@ -33,7 +33,6 @@ function EnhancedQuestionnaireWrapper({
   const isLastStep = currentStep === steps.length - 1
   const totalSteps = steps.length
   
-  // Calculate progress percentage
   const progressPercentage = ((currentStep + 1) / totalSteps) * 100
 
   const handleNext = () => {
@@ -44,31 +43,23 @@ function EnhancedQuestionnaireWrapper({
         nextStep()
       }
     } else {
-      // Show validation error or highlight required fields
       console.warn('Please complete all required fields before proceeding')
-      // You could add a toast notification here for better UX
       alert('Please complete all required fields before proceeding to the next step.')
     }
   }
 
-  const handleBack = () => {
-    previousStep()
-  }
+  const handleBack = () => previousStep()
 
   const handleFinish = async () => {
-    // Check if user is logged in before submitting
     if (!isLoggedIn) {
-      // Redirect to login page
       router.push('/auth/login')
       return
     }
-    
     try {
       await submitForm()
-      router.push('/property/success') // Redirect to success page
+      router.push('/property/success')
     } catch (error) {
       console.error('Failed to submit property listing:', error)
-      // Handle error (show toast, etc.)
     }
   }
 
@@ -76,8 +67,8 @@ function EnhancedQuestionnaireWrapper({
     <>
       <NavBarTop isQuestionnaire={true} />
 
-      <div className="mx-auto w-full max-w-7xl min-h-screen flex pt-20 pb-32">
-        {/* Progress Tracker Sidebar */}
+      <div className="mx-auto w-full max-w-7xl min-h-screen flex pt-24 pb-32 px-4 sm:px-6">
+        {/* Progress Tracker Sidebar - Hidden on Mobile */}
         {showProgressTracker && (
           <div className="hidden lg:block w-80 p-6 flex-shrink-0">
             <div className="sticky top-24">
@@ -87,8 +78,8 @@ function EnhancedQuestionnaireWrapper({
         )}
 
         {/* Main Content */}
-        <div className={`flex-1 flex items-start justify-center ${showProgressTracker ? 'pl-6' : ''}`}>
-          <div className="w-full max-w-6xl">
+        <div className={`flex-1 flex items-start justify-center ${showProgressTracker ? 'lg:pl-6' : ''}`}>
+          <div className="w-full max-w-4xl">
             {children}
           </div>
         </div>

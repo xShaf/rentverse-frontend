@@ -9,7 +9,6 @@ import { ArrowLeft, Plus, Minus } from 'lucide-react'
 import { PropertiesApiClient } from '@/utils/propertiesApiClient'
 import { Property } from '@/types/property'
 import useAuthStore from '@/stores/authStore'
-import { debugAuthState } from '@/utils/debugAuth'
 
 function BookingPage() {
   const router = useRouter()
@@ -22,13 +21,6 @@ function BookingPage() {
   const [property, setProperty] = useState<Property | null>(null)
   const [isLoadingProperty, setIsLoadingProperty] = useState(true)
 
-  // Debug the route parameters
-  console.log('[ROUTE] All params:', params)
-  console.log('[ROUTE] Property ID from params:', propertyId)
-  console.log('[ROUTE] Params.id type:', typeof params.id)
-  console.log('[ROUTE] Params.id value:', params.id)
-
-  // Form data state for booking
   const [formData, setFormData] = useState({
     checkIn: '',
     checkOut: '',
@@ -37,36 +29,26 @@ function BookingPage() {
     totalAmount: 0
   })
 
-  // Duration counters (similar to searchbar)
-  const [startMonthCount, setStartMonthCount] = useState(0) // Start month from now
-  const [durationMonths, setDurationMonths] = useState(1) // Duration in months
+  const [startMonthCount, setStartMonthCount] = useState(0)
+  const [durationMonths, setDurationMonths] = useState(1)
 
-  // Helper function to get property price as number
   const getPropertyPrice = useCallback(() => {
     if (!property) return 0
     return typeof property.price === 'string' ? parseFloat(property.price) : property.price
   }, [property])
 
-  // Update actual dates based on month counters
   const updateDatesFromCounters = useCallback((startMonth: number, duration: number) => {
     const currentDate = new Date()
-    
-    // For start month calculation, ensure we don't go to the past
     let startDate: Date
     if (startMonth === 0) {
-      // If starting "this month", use tomorrow or today (whichever is later)
       const tomorrow = new Date()
       tomorrow.setDate(tomorrow.getDate() + 1)
       startDate = tomorrow
     } else {
-      // For future months, use the 1st of that month
       startDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + startMonth, 1)
     }
+    const endDate = new Date(startDate.getFullYear(), startDate.getMonth() + duration, 0)
     
-    // Calculate end date by adding duration months to start date
-    const endDate = new Date(startDate.getFullYear(), startDate.getMonth() + duration, 0) // Last day of the end month
-    
-    // Calculate total amount based on duration and property price
     const monthlyPrice = getPropertyPrice()
     const totalAmount = monthlyPrice * duration
     
@@ -76,9 +58,8 @@ function BookingPage() {
       checkOut: endDate.toISOString().split('T')[0],
       totalAmount: totalAmount
     }))
-  }, [getPropertyPrice]) // Depend on getPropertyPrice
+  }, [getPropertyPrice])
 
-  // Helper functions for month counters
   const incrementStartMonth = () => {
     setStartMonthCount(prev => prev + 1)
     updateDatesFromCounters(startMonthCount + 1, durationMonths)
@@ -103,35 +84,23 @@ function BookingPage() {
     }
   }
 
-  // Format month display text
   const getStartMonthText = () => {
     const currentDate = new Date()
     const targetDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + startMonthCount, 1)
     return targetDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
   }
 
-  const getDurationText = () => {
-    return durationMonths === 1 ? '1 month' : `${durationMonths} months`
-  }
+  const getDurationText = () => durationMonths === 1 ? '1 month' : `${durationMonths} months`
 
-  // Fetch property data
   useEffect(() => {
     const fetchProperty = async () => {
       if (!propertyId) return
-      
       try {
         setIsLoadingProperty(true)
-        
-        // Use the same approach as the property view page
-        console.log('[PROPERTY] Fetching property with ID:', propertyId)
         const viewResponse = await PropertiesApiClient.logPropertyView(propertyId)
-        
         if (viewResponse.success && viewResponse.data.property) {
           const backendProperty = viewResponse.data.property
-          console.log('[PROPERTY] Successfully loaded property:', backendProperty)
           setProperty(backendProperty)
-          
-          // Set the initial total amount from property price
           const price = typeof backendProperty.price === 'string' 
             ? parseFloat(backendProperty.price) 
             : backendProperty.price
@@ -140,264 +109,72 @@ function BookingPage() {
           setSubmitError('Failed to load property details')
           setProperty(null)
         }
-        
       } catch (error) {
-        console.error('Error fetching property:', error)
-        setSubmitError('Failed to load property details. Please try again.')
-        setProperty(null)
+        console.error(error)
+        setSubmitError('Failed to load property details.')
       } finally {
         setIsLoadingProperty(false)
       }
     }
-
-    console.log('[EFFECT] useEffect triggered, propertyId:', propertyId)
-    if (propertyId && propertyId !== 'undefined' && propertyId !== 'null') {
-      fetchProperty()
-    } else {
-      console.warn('[EFFECT] No valid propertyId found:', propertyId)
-      setSubmitError('Property ID not found in URL')
-      setIsLoadingProperty(false)
-    }
+    if (propertyId) fetchProperty()
   }, [propertyId])
 
-  // Initialize dates on component mount
   useEffect(() => {
-    const currentDate = new Date()
-    const startDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
-    const endDate = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0)
-    
-    setFormData(prev => ({
-      ...prev,
-      checkIn: startDate.toISOString().split('T')[0],
-      checkOut: endDate.toISOString().split('T')[0],
-      totalAmount: 0 // Will be updated when property loads
-    }))
-  }, []) // Run once on mount
+    if (property) updateDatesFromCounters(startMonthCount, durationMonths)
+  }, [property, startMonthCount, durationMonths, updateDatesFromCounters])
 
-  // Update total amount when property loads or duration changes
-  useEffect(() => {
-    if (property) {
-      updateDatesFromCounters(startMonthCount, durationMonths)
-    }
-  }, [property, startMonthCount, durationMonths, updateDatesFromCounters]) // Update when property or counters change
+  const handleNext = () => { if (currentStep < 4) setCurrentStep(currentStep + 1) }
+  const handlePrevious = () => { if (currentStep > 1) setCurrentStep(currentStep - 1) }
 
-  // Get button text based on state
-  const getSubmitButtonText = () => {
-    if (isSubmitting) return 'Submitting...'
-    if (!isLoggedIn) return 'Login Required'
-    return 'Submit Booking'
-  }
-
-  const handleBack = () => {
-    router.back()
-  }
-
-  const handleNext = () => {
-    if (currentStep < 4) {
-      setCurrentStep(currentStep + 1)
-    }
-  }
-
-  const handlePrevious = () => {
-    if (currentStep > 1) {
-      setCurrentStep(currentStep - 1)
-    }
-  }
-
-    const handleSubmitBooking = async () => {
+  const handleSubmitBooking = async () => {
     if (!formData.checkIn || !formData.checkOut) {
       setSubmitError('Please select booking dates')
       return
     }
-
     setIsSubmitting(true)
     setSubmitError('')
 
     try {
-      // Add comprehensive debugging
-      console.log('[BOOKING] Starting booking submission...')
-      const authStore = useAuthStore.getState()
-      debugAuthState()
-      
-      // Check authentication state
-      if (!authStore.isLoggedIn) {
-        console.log('[BOOKING] User not logged in, redirecting to login')
-        setSubmitError('Please log in to make a booking')
-        router.push('/auth/login')
-        return
-      }
-
-      // Manual token validation
       const token = localStorage.getItem('authToken')
-      console.log('[BOOKING] Token from localStorage:', token ? `${token.slice(0, 20)}...` : 'null')
-      
-      if (!token) {
-        console.log('[BOOKING] No token found, redirecting to login')
-        setSubmitError('Authentication token not found. Please log in again.')
+      if (!token || !isLoggedIn) {
         router.push('/auth/login')
         return
       }
 
-      // Test token validity with /api/auth/me
-      console.log('[BOOKING] Testing token validity...')
-      try {
-        const authTestResponse = await fetch('/api/auth/me', {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-        })
-        
-        console.log('[BOOKING] Auth test response status:', authTestResponse.status)
-        console.log('[BOOKING] Auth test response ok:', authTestResponse.ok)
-        
-        if (!authTestResponse.ok) {
-          const authError = await authTestResponse.text()
-          console.log('[BOOKING] Auth test failed:', authError)
-          setSubmitError('Token validation failed. Please log in again.')
-          router.push('/auth/login')
-          return
-        }
-        
-        const authResult = await authTestResponse.json()
-        console.log('[BOOKING] Auth test result:', authResult)
-        
-        if (!authResult.success) {
-          console.log('[BOOKING] Auth test unsuccessful:', authResult)
-          setSubmitError('Authentication failed. Please log in again.')
-          router.push('/auth/login')
-          return
-        }
-        
-        console.log('[BOOKING] Token is valid, proceeding with booking...')
-      } catch (authError) {
-        console.error('[BOOKING] Auth test error:', authError)
-        setSubmitError('Authentication check failed. Please try again.')
-        return
-      }
-
-      // Prepare booking data with the correct schema
       const bookingData = {
         propertyId: propertyId,
         startDate: new Date(formData.checkIn + 'T12:00:00.000Z').toISOString(),
         endDate: new Date(formData.checkOut + 'T23:59:59.000Z').toISOString(),
         rentAmount: formData.totalAmount || 0,
-        securityDeposit: 0, // Always 0 as requested
+        securityDeposit: 0,
         notes: formData.message || ""
       }
 
-      console.log('[BOOKING] Booking data:', bookingData)
-
-      // Submit booking directly to backend API
-      console.log('[BOOKING] Submitting booking to /api/bookings...')
       const response = await fetch('/api/bookings', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(bookingData)
       })
 
-      console.log('[BOOKING] Booking response status:', response.status)
-      console.log('[BOOKING] Booking response ok:', response.ok)
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        console.error('[BOOKING] Booking failed:', errorData)
-        throw new Error(errorData.message || `Booking failed with status: ${response.status}`)
-      }
-
+      if (!response.ok) throw new Error(`Booking failed`)
+      
       const result = await response.json()
-      console.log('[BOOKING] Booking response:', result)
-
       if (result && (result.id || result.success)) {
-        setCurrentStep(4) // Keep on review step but show success
-        console.log('[BOOKING] Booking successful!')
-        
-        // Optional: redirect to bookings page after a delay
-        setTimeout(() => {
-          router.push('/rents') // Redirect to user's bookings
-        }, 2000)
-      } else {
-        setSubmitError('Failed to create booking - no confirmation received')
-        console.log('[BOOKING] Booking failed - no booking ID or success confirmation')
+        setCurrentStep(4)
+        setTimeout(() => router.push('/rents'), 2000)
       }
-    } catch (error: unknown) {
-      console.error('Booking submission error:', error)
-      
-      // Handle specific error cases
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      console.log('[BOOKING] Error message details:', errorMessage)
-      
-      if (errorMessage.includes('401')) {
-        setSubmitError('Authentication failed. Please log in again. (Error: 401)')
-        setTimeout(() => {
-          router.push('/auth/login')
-        }, 3000)
-      } else if (errorMessage.includes('403')) {
-        setSubmitError('You do not have permission to make bookings. (Error: 403)')
-      } else if (errorMessage.includes('400')) {
-        setSubmitError('Invalid booking data. Please check your information. (Error: 400)')
-      } else if (errorMessage.includes('422')) {
-        setSubmitError('Booking validation failed. Please check your data. (Error: 422)')
-      } else if (errorMessage.includes('500')) {
-        setSubmitError('Server error. Please try again later. (Error: 500)')
-      } else {
-        setSubmitError(`Failed to submit booking: ${errorMessage}`)
-      }
+    } catch (error: any) {
+      setSubmitError(error.message || 'Failed to submit booking')
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  // Loading state
   if (isLoadingProperty) {
     return (
       <ContentWrapper>
         <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="text-center">
-            <div className="text-lg text-slate-600">Loading property details...</div>
-          </div>
-        </div>
-      </ContentWrapper>
-    )
-  }
-
-  // Error state
-  if (submitError && !property) {
-    return (
-      <ContentWrapper>
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="text-center">
-            <div className="text-lg text-red-600">{submitError}</div>
-            <button 
-              onClick={() => window.location.reload()} 
-              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-            >
-              Try Again
-            </button>
-          </div>
-        </div>
-      </ContentWrapper>
-    )
-  }
-
-  // Property not found state
-  if (!property && !isLoadingProperty) {
-    return (
-      <ContentWrapper>
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="text-center">
-            <div className="text-lg text-red-600">Property not found</div>
-            <button 
-              onClick={() => router.push('/property')} 
-              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-            >
-              Browse Properties
-            </button>
-          </div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-900"></div>
         </div>
       </ContentWrapper>
     )
@@ -405,262 +182,106 @@ function BookingPage() {
 
   return (
     <ContentWrapper>
-      {/* Header */}
-      <div className="flex items-center space-x-3 mb-8">
-        <ButtonCircle icon={<ArrowLeft />} onClick={handleBack} />
-        <h1 className="text-2xl font-sans font-medium text-slate-900">
-          Request to book
-        </h1>
+      <div className="flex items-center space-x-3 mb-6 px-4 md:px-0">
+        <ButtonCircle icon={<ArrowLeft />} onClick={() => router.back()} />
+        <h1 className="text-xl md:text-2xl font-sans font-medium text-slate-900">Request to book</h1>
       </div>
 
-      {/* Authentication Warning */}
-      {!isLoggedIn && (
-        <div className="mb-6 bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-xl">
-          <p className="font-medium">Authentication Required</p>
-          <p className="text-sm">You need to log in to make a booking. Please sign in to continue.</p>
-        </div>
-      )}
-
-      {/* Property Loading Error */}
-      {!propertyId && (
-        <div className="mb-6 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-xl">
-          <p className="font-medium">Property Not Found</p>
-          <p className="text-sm">Unable to detect property ID from the URL. Please check the link and try again.</p>
-        </div>
-      )}
-
-      {/* Property Loading State */}
-      {isLoadingProperty && propertyId && (
-        <div className="mb-6 bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded-xl">
-          <p className="font-medium">Loading Property</p>
-          <p className="text-sm">Fetching property details for ID: {propertyId}</p>
-        </div>
-      )}
-
-      {/* Main content */}
-      <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 px-4 md:px-0 pb-20">
         {/* Left side - Form */}
-        <div className="space-y-8">
-          {/* Step 1 - Add payment method */}
+        <div className="space-y-8 order-2 lg:order-1">
+          {/* Step 1 */}
           {currentStep === 1 && (
             <div className="space-y-4">
-              <div className="flex items-center space-x-3">
-                <span className="text-lg font-semibold text-slate-900">1.</span>
-                <h2 className="text-lg font-semibold text-slate-900">Add payment method</h2>
-              </div>
-
-              <div className="flex items-center justify-between p-4 border border-slate-200 rounded-xl">
+              <h2 className="text-lg font-semibold text-slate-900">1. Add payment method</h2>
+              <div className="flex items-center justify-between p-4 border border-slate-200 rounded-xl bg-white">
                 <div className="flex items-center space-x-3">
-                  <div
-                    className="w-10 h-6 bg-blue-600 rounded text-white text-xs font-bold flex items-center justify-center">
-                    VISA
-                  </div>
-                  <span className="text-slate-600">Visa credit card</span>
+                  <div className="w-10 h-6 bg-blue-600 rounded text-white text-xs font-bold flex items-center justify-center">VISA</div>
+                  <span className="text-slate-600 text-sm md:text-base">Visa credit card</span>
                 </div>
-                <button className="text-teal-600 font-medium text-sm hover:text-teal-700 transition-colors">
-                  Change
-                </button>
+                <button className="text-teal-600 font-medium text-sm">Change</button>
               </div>
-
               <div className="flex justify-end">
-                <button
-                  onClick={handleNext}
-                  className="px-6 py-2 bg-teal-600 hover:bg-teal-700 text-white font-medium rounded-xl transition-colors duration-200"
-                >
-                  Next
-                </button>
+                <button onClick={handleNext} className="w-full sm:w-auto px-6 py-3 bg-teal-600 text-white rounded-xl font-medium">Next</button>
               </div>
             </div>
           )}
 
-          {/* Step 2 - Booking Details */}
+          {/* Step 2 */}
           {currentStep === 2 && (
-            <div className="space-y-4">
-              <div className="flex items-center space-x-3">
-                <span className="text-lg font-semibold text-slate-900">2.</span>
-                <h2 className="text-lg font-semibold text-slate-900">Booking details</h2>
-              </div>
+            <div className="space-y-6">
+              <h2 className="text-lg font-semibold text-slate-900">2. Booking details</h2>
               
-              <div className="space-y-4">
-                {/* Start Month Counter */}
-                <div className="space-y-3">
-                  <label className="block text-sm font-medium text-slate-700">
-                    Start Month
-                  </label>
-                  <div className="flex items-center justify-between p-4 border border-slate-200 rounded-lg">
-                    <div className="text-left">
-                      <div className="font-medium text-slate-900">{getStartMonthText()}</div>
-                      <div className="text-sm text-slate-500">Starting month for rental</div>
-                    </div>
-                    <div className="flex items-center space-x-3">
-                      <button
-                        onClick={decrementStartMonth}
-                        className="w-8 h-8 flex items-center justify-center border border-slate-300 rounded-full hover:border-slate-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        disabled={startMonthCount === 0}
-                      >
-                        <Minus size={16} className="text-slate-600" />
-                      </button>
-                      <span className="w-8 text-center font-medium text-slate-900">{startMonthCount}</span>
-                      <button
-                        onClick={incrementStartMonth}
-                        className="w-8 h-8 flex items-center justify-center border border-slate-300 rounded-full hover:border-slate-400 transition-colors"
-                      >
-                        <Plus size={16} className="text-slate-600" />
-                      </button>
-                    </div>
+              {/* Start Month */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700">Start Month</label>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border border-slate-200 rounded-lg gap-4 bg-white">
+                  <div>
+                    <div className="font-medium text-slate-900">{getStartMonthText()}</div>
+                    <div className="text-sm text-slate-500">Starting month</div>
                   </div>
-                </div>
-
-                {/* Duration Counter */}
-                <div className="space-y-3">
-                  <label className="block text-sm font-medium text-slate-700">
-                    Duration
-                  </label>
-                  <div className="flex items-center justify-between p-4 border border-slate-200 rounded-lg">
-                    <div className="text-left">
-                      <div className="font-medium text-slate-900">{getDurationText()}</div>
-                      <div className="text-sm text-slate-500">Rental duration</div>
-                    </div>
-                    <div className="flex items-center space-x-3">
-                      <button
-                        onClick={decrementDuration}
-                        className="w-8 h-8 flex items-center justify-center border border-slate-300 rounded-full hover:border-slate-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        disabled={durationMonths === 1}
-                      >
-                        <Minus size={16} className="text-slate-600" />
-                      </button>
-                      <span className="w-8 text-center font-medium text-slate-900">{durationMonths}</span>
-                      <button
-                        onClick={incrementDuration}
-                        className="w-8 h-8 flex items-center justify-center border border-slate-300 rounded-full hover:border-slate-400 transition-colors"
-                      >
-                        <Plus size={16} className="text-slate-600" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Show calculated dates for reference */}
-                <div className="space-y-2 p-3 bg-slate-50 rounded-lg">
-                  <div className="text-sm font-medium text-slate-700">Calculated Dates:</div>
-                  <div className="text-sm text-slate-600">
-                    Check-in: {formData.checkIn ? new Date(formData.checkIn).toLocaleDateString() : 'Not set'}
-                  </div>
-                  <div className="text-sm text-slate-600">
-                    Check-out: {formData.checkOut ? new Date(formData.checkOut).toLocaleDateString() : 'Not set'}
+                  <div className="flex items-center justify-center space-x-4">
+                    <button onClick={decrementStartMonth} disabled={startMonthCount === 0} className="p-2 border rounded-full hover:bg-slate-50 disabled:opacity-50"><Minus size={16}/></button>
+                    <span className="w-4 text-center font-medium">{startMonthCount}</span>
+                    <button onClick={incrementStartMonth} className="p-2 border rounded-full hover:bg-slate-50"><Plus size={16}/></button>
                   </div>
                 </div>
               </div>
 
-              <div className="flex justify-between">
-                <button
-                  onClick={handlePrevious}
-                  className="px-6 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium rounded-xl transition-colors duration-200"
-                >
-                  Previous
-                </button>
-                <button
-                  onClick={handleNext}
-                  className="px-6 py-2 bg-teal-600 hover:bg-teal-700 text-white font-medium rounded-xl transition-colors duration-200"
-                >
-                  Next
-                </button>
+              {/* Duration */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700">Duration</label>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border border-slate-200 rounded-lg gap-4 bg-white">
+                  <div>
+                    <div className="font-medium text-slate-900">{getDurationText()}</div>
+                    <div className="text-sm text-slate-500">Rental duration</div>
+                  </div>
+                  <div className="flex items-center justify-center space-x-4">
+                    <button onClick={decrementDuration} disabled={durationMonths === 1} className="p-2 border rounded-full hover:bg-slate-50 disabled:opacity-50"><Minus size={16}/></button>
+                    <span className="w-4 text-center font-medium">{durationMonths}</span>
+                    <button onClick={incrementDuration} className="p-2 border rounded-full hover:bg-slate-50"><Plus size={16}/></button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-4">
+                <button onClick={handlePrevious} className="flex-1 px-6 py-3 bg-slate-200 text-slate-700 rounded-xl font-medium">Previous</button>
+                <button onClick={handleNext} className="flex-1 px-6 py-3 bg-teal-600 text-white rounded-xl font-medium">Next</button>
               </div>
             </div>
           )}
 
-          {/* Step 3 - Write a message to the host */}
+          {/* Step 3 */}
           {currentStep === 3 && (
             <div className="space-y-4">
-              <div className="flex items-center space-x-3">
-                <span className="text-lg font-semibold text-slate-900">3.</span>
-                <h2 className="text-lg font-semibold text-slate-900">Write a message to the host</h2>
-              </div>
-
-              <p className="text-slate-600 text-sm">
-                Let your host know a little about your visit and why their place is a good fit for you.
-              </p>
-
-              <div className="space-y-4">
-                <textarea
-                  value={formData.message}
-                  onChange={(e) => setFormData(prev => ({...prev, message: e.target.value}))}
-                  placeholder="Tell your message in here"
-                  className="w-full h-32 px-4 py-3 border border-slate-200 rounded-xl bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent resize-none"
-                />
-
-                <div className="flex justify-between">
-                  <button
-                    onClick={handlePrevious}
-                    className="px-6 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium rounded-xl transition-colors duration-200"
-                  >
-                    Previous
-                  </button>
-                  <button
-                    onClick={handleNext}
-                    className="px-6 py-2 bg-teal-600 hover:bg-teal-700 text-white font-medium rounded-xl transition-colors duration-200"
-                  >
-                    Next
-                  </button>
-                </div>
+              <h2 className="text-lg font-semibold text-slate-900">3. Message to host</h2>
+              <textarea
+                value={formData.message}
+                onChange={(e) => setFormData(prev => ({...prev, message: e.target.value}))}
+                placeholder="Introduce yourself..."
+                className="w-full h-32 px-4 py-3 border border-slate-200 rounded-xl resize-none focus:ring-2 focus:ring-teal-500 outline-none"
+              />
+              <div className="flex gap-4">
+                <button onClick={handlePrevious} className="flex-1 px-6 py-3 bg-slate-200 text-slate-700 rounded-xl font-medium">Previous</button>
+                <button onClick={handleNext} className="flex-1 px-6 py-3 bg-teal-600 text-white rounded-xl font-medium">Next</button>
               </div>
             </div>
           )}
 
-          {/* Step 4 - Review Request */}
+          {/* Step 4 */}
           {currentStep === 4 && (
-            <div className="space-y-4">
-              <div className="flex items-center space-x-3">
-                <span className="text-lg font-semibold text-slate-900">4.</span>
-                <h2 className="text-lg font-semibold text-slate-900">Review your request</h2>
+            <div className="space-y-6">
+              <h2 className="text-lg font-semibold text-slate-900">4. Review request</h2>
+              <div className="bg-slate-50 p-5 rounded-xl space-y-3 text-sm">
+                <div className="flex justify-between"><span>Check-in:</span> <span className="font-medium">{new Date(formData.checkIn).toLocaleDateString()}</span></div>
+                <div className="flex justify-between"><span>Check-out:</span> <span className="font-medium">{new Date(formData.checkOut).toLocaleDateString()}</span></div>
+                <div className="flex justify-between border-t pt-2 mt-2"><span>Total:</span> <span className="font-bold text-lg text-teal-600">RM {formData.totalAmount}</span></div>
               </div>
-              
-              <div className="bg-slate-50 p-4 rounded-xl space-y-4">
-                <div>
-                  <p className="text-sm text-slate-600 mb-2">Payment Method:</p>
-                  <p className="text-slate-900 font-medium">VISA credit card</p>
-                </div>
-                
-                <div>
-                  <p className="text-sm text-slate-600 mb-2">Booking Details:</p>
-                  <div className="space-y-1">
-                    <p className="text-slate-900">Check-in: {formData.checkIn ? new Date(formData.checkIn).toLocaleDateString() : 'Not selected'}</p>
-                    <p className="text-slate-900">Check-out: {formData.checkOut ? new Date(formData.checkOut).toLocaleDateString() : 'Not selected'}</p>
-                    <p className="text-slate-900">Duration: {getDurationText()}</p>
-                    <p className="text-slate-900">Total: RM {formData.totalAmount}</p>
-                  </div>
-                </div>
-                
-                {formData.message && (
-                  <div>
-                    <p className="text-sm text-slate-600 mb-2">Message to Host:</p>
-                    <p className="text-slate-900">{formData.message}</p>
-                  </div>
-                )}
-              </div>
-
-              {/* Error Message */}
-              {submitError && (
-                <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl">
-                  {submitError}
-                </div>
-              )}
-
-              {/* Action Buttons */}
-              <div className="flex justify-between">
-                <button
-                  onClick={handlePrevious}
-                  disabled={isSubmitting}
-                  className="px-6 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium rounded-xl transition-colors duration-200 disabled:opacity-50"
-                >
-                  Previous
-                </button>
-                <button
-                  onClick={handleSubmitBooking}
-                  disabled={isSubmitting || !isLoggedIn}
-                  className="px-6 py-2 bg-teal-600 hover:bg-teal-700 text-white font-medium rounded-xl transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {getSubmitButtonText()}
+              {submitError && <div className="text-red-600 text-sm bg-red-50 p-3 rounded-lg">{submitError}</div>}
+              <div className="flex gap-4">
+                <button onClick={handlePrevious} disabled={isSubmitting} className="flex-1 px-6 py-3 bg-slate-200 text-slate-700 rounded-xl font-medium disabled:opacity-50">Previous</button>
+                <button onClick={handleSubmitBooking} disabled={isSubmitting} className="flex-1 px-6 py-3 bg-teal-600 text-white rounded-xl font-medium disabled:opacity-50">
+                  {isSubmitting ? 'Submitting...' : 'Confirm Booking'}
                 </button>
               </div>
             </div>
@@ -668,90 +289,26 @@ function BookingPage() {
         </div>
 
         {/* Right side - Property Summary */}
-        <div className="lg:sticky lg:top-8 lg:self-start">
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-            <div className="space-y-6">
-              {/* Property Image */}
-              <div className="relative w-full h-48 rounded-xl overflow-hidden">
-                {property ? (
-                  <Image
-                    src={
-                      property.images && property.images.length > 0 
-                        ? property.images[0] 
-                        : "https://res.cloudinary.com/dqhuvu22u/image/upload/f_webp/v1758016984/rentverse-rooms/Gemini_Generated_Image_5hdui35hdui35hdu_s34nx6.png"
-                    }
-                    alt={property.title || `Property ${property.id} image`}
-                    fill
-                    className="object-cover"
-                    onError={(e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-                      // Fallback to default image if the property image fails to load
-                      const target = e.target as HTMLImageElement
-                      target.src = "https://res.cloudinary.com/dqhuvu22u/image/upload/f_webp/v1758016984/rentverse-rooms/Gemini_Generated_Image_5hdui35hdui35hdu_s34nx6.png"
-                    }}
-                  />
-                ) : (
-                  <div className="w-full h-full bg-slate-200 animate-pulse rounded-xl flex items-center justify-center">
-                    <span className="text-slate-400 text-sm">Loading image...</span>
-                  </div>
+        <div className="order-1 lg:order-2 lg:sticky lg:top-24 h-fit">
+          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+            <div className="flex gap-4 mb-4">
+              <div className="relative w-24 h-24 rounded-lg overflow-hidden flex-shrink-0">
+                {property?.images?.[0] && (
+                  <Image src={property.images[0]} alt={property.title} fill className="object-cover" />
                 )}
-                <div className="absolute top-3 left-3 bg-white px-2 py-1 rounded-lg text-xs font-medium text-slate-700">
-                  {property?.propertyType?.name || property?.type || 'Loading...'}
-                </div>
               </div>
-
-              {/* Property Details */}
-              <div className="space-y-3">
-                <p className="text-sm text-slate-500">
-                  {property ? `${property.address}, ${property.city}, ${property.state}, ${property.country}` : 'Loading location...'}
-                </p>
-                <h3 className="text-lg font-semibold text-slate-900">
-                  {property?.title || 'Loading property...'}
-                </h3>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-slate-500 truncate">{property?.city}, {property?.country}</p>
+                <h3 className="text-sm font-semibold text-slate-900 line-clamp-2">{property?.title}</h3>
+                <p className="text-xs text-slate-500 mt-1">{property?.type}</p>
               </div>
-
-              {/* Dates */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-slate-700">Dates</span>
-                  <button className="text-teal-600 font-medium text-sm hover:text-teal-700 transition-colors">
-                    Change
-                  </button>
-                </div>
-                <p className="text-sm text-slate-600">
-                  {formData.checkIn && formData.checkOut 
-                    ? `${new Date(formData.checkIn).toLocaleDateString()} - ${new Date(formData.checkOut).toLocaleDateString()}`
-                    : 'Select dates in the form'
-                  }
-                </p>
-              </div>
-
-              {/* Price Details */}
-              <div className="space-y-3 pt-4 border-t border-slate-200">
-                <h4 className="text-sm font-medium text-slate-700">Price details</h4>
-
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-600">Monthly rent</span>
-                  <span className="text-slate-900">
-                    RM {getPropertyPrice()}
-                  </span>
-                </div>
-
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-600">Duration</span>
-                  <span className="text-slate-900">{getDurationText()}</span>
-                </div>
-
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-600">Subtotal (RM {getPropertyPrice()} × {durationMonths})</span>
-                  <span className="text-slate-900">RM {getPropertyPrice() * durationMonths}</span>
-                </div>
-
-                <div className="flex justify-between text-sm font-medium border-t border-slate-200 pt-3">
-                  <span className="text-slate-900">Total</span>
-                  <span className="text-slate-900">
-                    RM {formData.totalAmount}
-                  </span>
-                </div>
+            </div>
+            
+            <div className="border-t border-slate-100 pt-4 space-y-2">
+              <div className="flex justify-between text-sm"><span>Monthly</span> <span>RM {getPropertyPrice()}</span></div>
+              <div className="flex justify-between text-sm"><span>Duration</span> <span>{getDurationText()}</span></div>
+              <div className="flex justify-between text-base font-bold pt-2 border-t border-slate-100">
+                <span>Total</span> <span>RM {formData.totalAmount}</span>
               </div>
             </div>
           </div>
