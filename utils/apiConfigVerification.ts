@@ -61,8 +61,8 @@ export function verifyApiConfiguration() {
 export const testUrls = {
   // Test cases for different environments
   production: {
-    api: 'https://rentverse-be.jokoyuliyanto.my.id',
-    ai: 'http://rentverse-ai.jokoyuliyanto.my.id',
+    api: 'rentverse-backend-production-1e27.up.railway.app',
+    ai: 'rentverse-ai-service-production-583d.up.railway.app',
   },
   development: {
     api: 'http://localhost:8000',
